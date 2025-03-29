@@ -42,7 +42,39 @@ export class MemStorage implements IStorage {
 
   async createEpisode(episodeData: InsertEpisode): Promise<Episode> {
     const id = this.episodeIdCounter++;
-    const episode: Episode = { ...episodeData, id };
+    
+    // Ensure episodeData.number is never empty
+    if (!episodeData.number || episodeData.number === 'N/A') {
+      console.log(`WARNING: エピソード番号が設定されていません。ID=${id}のエピソード`);
+      
+      // Extract episode number from title if possible
+      const numberMatch = episodeData.title.match(/#(\d+)/);
+      if (numberMatch) {
+        episodeData.number = numberMatch[1];
+        console.log(`エピソード番号を抽出しました: ${episodeData.number}`);
+      } else {
+        // Use ID as a fallback
+        episodeData.number = `${id}`;
+        console.log(`エピソード番号にIDを使用します: ${episodeData.number}`);
+      }
+    }
+    
+    // nullを明示的に設定して型エラーを回避
+    const episode: Episode = {
+      id,
+      number: episodeData.number,
+      guid: episodeData.guid,
+      title: episodeData.title,
+      description: episodeData.description || null,
+      audioUrl: episodeData.audioUrl || null,
+      publicationDate: episodeData.publicationDate,
+      duration: episodeData.duration || null,
+      url: episodeData.url,
+      tags: (episodeData.tags && Array.isArray(episodeData.tags)) 
+        ? [...episodeData.tags].map(tag => String(tag)) 
+        : [] as string[]
+    };
+    
     this.episodes.set(id, episode);
     return episode;
   }
@@ -55,7 +87,16 @@ export class MemStorage implements IStorage {
 
   async createShowNote(showNoteData: InsertShowNote): Promise<ShowNote> {
     const id = this.showNoteIdCounter++;
-    const showNote: ShowNote = { ...showNoteData, id };
+    
+    // 個別にプロパティを指定して型エラーを回避
+    const showNote: ShowNote = {
+      id,
+      title: showNoteData.title,
+      episodeId: showNoteData.episodeId,
+      content: showNoteData.content || null,
+      timestamp: showNoteData.timestamp || null
+    };
+    
     this.showNotes.set(id, showNote);
     return showNote;
   }
@@ -70,25 +111,45 @@ export class MemStorage implements IStorage {
     const results: SearchResult[] = [];
     
     // Search through episodes and their show notes
-    for (const episode of this.episodes.values()) {
+    console.log(`検索開始: "${query}"`);
+    
+    // エピソードとその番号を収集
+    const allEpisodes = Array.from(this.episodes.values());
+    const episodeNumbers = allEpisodes.map(e => e.number);
+    console.log(`全エピソード番号: ${episodeNumbers.slice(0, 5).join(', ')}... (合計 ${episodeNumbers.length} 件)`);
+    
+    // Search through episodes and their show notes
+    for (const episode of allEpisodes) {
+      // エピソード番号
+      const episodeNumber = episode.number;
+      
+      // マッチしたかどうか
+      let hasMatch = false;
+      
+      // Show notesを取得
       const showNotes = Array.from(this.showNotes.values()).filter(
         note => note.episodeId === episode.id
       );
       
       // エピソードタイトルをチェック
       const episodeTitleMatch = episode.title.toLowerCase().includes(normalizedQuery);
+      if (episodeTitleMatch) {
+        hasMatch = true;
+      }
       
-      // ショーノートのコンテンツとリンクをチェック
-      let hasMatch = false;
+      // ショーノートのタイトルをチェック
+      const hasShowNoteTitleMatch = showNotes.some(note => 
+        note.title && note.title.toLowerCase().includes(normalizedQuery)
+      );
+      if (hasShowNoteTitleMatch) {
+        hasMatch = true;
+      }
       
-      // ショーノートのタイトルとコンテンツをチェック
-      const hasMatchingShowNotes = showNotes.some(note => {
-        const titleMatched = note.title && note.title.toLowerCase().includes(normalizedQuery);
-        const contentMatched = note.content && note.content.toLowerCase().includes(normalizedQuery);
-        return titleMatched || contentMatched;
-      });
-      
-      if (hasMatchingShowNotes) {
+      // ショーノートの内容をチェック
+      const hasShowNoteContentMatch = showNotes.some(note => 
+        note.content && note.content.toLowerCase().includes(normalizedQuery)
+      );
+      if (hasShowNoteContentMatch) {
         hasMatch = true;
       }
       
@@ -141,8 +202,19 @@ export class MemStorage implements IStorage {
         };
       });
       
+      // エピソード情報をログに出力（特定のエピソードの場合）
+      if (["292", "278", "109"].includes(episodeNumber)) {
+        console.log(`\nエピソード #${episodeNumber} の検索結果:`);
+        console.log(`タイトル: ${episode.title}`);
+        console.log(`エピソードタイトルマッチ: ${episodeTitleMatch}`);
+        console.log(`ショーノートタイトルマッチ: ${hasShowNoteTitleMatch}`);
+        console.log(`ショーノート内容マッチ: ${hasShowNoteContentMatch}`);
+        console.log(`リンクテキストマッチ: ${hasMatchingLinkText}`);
+        console.log(`最終マッチ結果: ${hasMatch}`);
+      }
+      
       // エピソードタイトルかショーノートかリンクがマッチした場合のみ結果に追加
-      if (episodeTitleMatch || hasMatch) {
+      if (hasMatch) {
         results.push({
           episode,
           showNotes: matchedShowNotes,

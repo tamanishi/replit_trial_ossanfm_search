@@ -32,10 +32,10 @@ export const searchResultSchema = z.object({
     guid: z.string(),
     number: z.string(),
     title: z.string(),
-    description: z.string().optional(),
-    audioUrl: z.string().optional(),
+    description: z.string().nullable(),   // nullを許可するようにnullableに変更
+    audioUrl: z.string().nullable(),      // nullを許可するようにnullableに変更
     publicationDate: z.date(),
-    duration: z.string().optional(),
+    duration: z.string().nullable(),      // nullを許可するようにnullableに変更
     url: z.string(),
     tags: z.array(z.string()),
   }),
@@ -43,19 +43,16 @@ export const searchResultSchema = z.object({
     z.object({
       id: z.number(),
       title: z.string(),
-      content: z.string().optional(),
-      timestamp: z.string().optional(),
+      content: z.string().nullable(),     // nullを許可するようにnullableに変更
+      timestamp: z.string().nullable(),   // nullを許可するようにnullableに変更
       episodeId: z.number(),
-      matched: z.boolean().optional() // 検索にマッチしたかどうか
+      matched: z.boolean().optional()     // 検索にマッチしたかどうか
     })
   ),
-  highlighted: z.union([
-    z.boolean().optional(),
-    z.object({
-      episodeTitle: z.boolean().optional(),
-      query: z.string().optional()
-    }).optional()
-  ]),
+  highlighted: z.object({
+    episodeTitle: z.boolean().default(false),
+    query: z.string().default("")
+  }),
 });
 
 export type SearchResult = z.infer<typeof searchResultSchema>;

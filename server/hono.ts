@@ -140,7 +140,26 @@ async function fetchAndProcessPodcastData() {
 app.get('/api/refresh', async (c) => {
   try {
     await fetchAndProcessPodcastData();
-    return c.json({ success: true, message: 'Podcast data refreshed successfully' });
+    
+    // 全エピソードを取得して番号をログに出力
+    const storage = await import('./storage').then(m => m.storage);
+    const episodes = await storage.getEpisodes();
+    
+    // エピソード番号が設定されているか確認
+    const episodeNumbers = episodes.map(e => e.number);
+    console.log(`全エピソード番号（先頭5件）: ${episodeNumbers.slice(0, 5).join(', ')}... （合計 ${episodeNumbers.length} 件）`);
+    
+    // エラーチェック
+    const noNumberEpisodes = episodes.filter(e => !e.number || e.number === 'N/A');
+    if (noNumberEpisodes.length > 0) {
+      console.log(`警告: ${noNumberEpisodes.length} 件のエピソードに番号が設定されていません。`);
+    }
+    
+    return c.json({ 
+      success: true, 
+      message: 'Podcast data refreshed successfully',
+      episodeCount: episodes.length
+    });
   } catch (error) {
     console.error('Error refreshing podcast data:', error);
     return c.json({ success: false, message: 'Failed to refresh podcast data' }, 500);
@@ -151,7 +170,16 @@ app.get('/api/refresh', async (c) => {
 app.get('/api/search', async (c) => {
   try {
     const query = c.req.query('q') || '';
+    console.log(`\n======= 検索クエリ: "${query}" =======`);
+    
     const results = await storage.searchEpisodes(query);
+    
+    // 結果のエピソード番号をログに出力
+    const resultNumbers = results.map(r => r.episode.number).join(', ');
+    console.log(`\n検索結果のエピソード番号: ${resultNumbers}`);
+    console.log(`検索結果の件数: ${results.length}`);
+    console.log(`====== 検索終了 ======\n`);
+    
     return c.json(results);
   } catch (error) {
     console.error('Search error:', error);
@@ -176,6 +204,85 @@ app.get('/api/episodes', async (c) => {
   } catch (error) {
     console.error('Error fetching episodes:', error);
     return c.json({ message: 'Failed to fetch episodes' }, 500);
+  }
+});
+
+// デバッグ用エンドポイント - 特定のエピソードの詳細情報を取得
+app.get('/api/debug-episode/:number', async (c) => {
+  try {
+    const number = c.req.param('number');
+    
+    // 全エピソードを取得
+    const allEpisodes = await storage.getEpisodes();
+    
+    // 番号でエピソードを検索
+    const episode = allEpisodes.find(ep => ep.number === number);
+    
+    if (!episode) {
+      return c.json({ message: `エピソード #${number} が見つかりませんでした` }, 404);
+    }
+    
+    // ショーノート情報を取得
+    const showNotes = await storage.getShowNotes(episode.id);
+    
+    // リンクを抽出
+    const links: {title: string, url: string, linkText: string}[] = [];
+    
+    for (const note of showNotes) {
+      if (!note.content) continue;
+      
+      // アンカータグを探す
+      const anchorRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
+      let anchorMatch;
+      
+      while ((anchorMatch = anchorRegex.exec(note.content)) !== null) {
+        const url = anchorMatch[2];
+        const linkText = anchorMatch[3].replace(/<[^>]*>/g, '').trim();
+        
+        if (url && linkText) {
+          links.push({
+            title: note.title,
+            url,
+            linkText
+          });
+        }
+      }
+      
+      // プレーンURLを探す
+      const urlPattern = /(https?:\/\/[^\s"'<>]+)/g;
+      let urlMatch;
+      
+      while ((urlMatch = urlPattern.exec(note.content)) !== null) {
+        const url = urlMatch[1];
+        
+        if (url) {
+          links.push({
+            title: note.title,
+            url,
+            linkText: url
+          });
+        }
+      }
+    }
+    
+    // 検索クエリ「こども」が含まれるかチェック
+    const testQuery = "こども";
+    const containsQuery = {
+      title: episode.title.toLowerCase().includes(testQuery.toLowerCase()),
+      showNoteTitles: showNotes.some(note => note.title && note.title.toLowerCase().includes(testQuery.toLowerCase())),
+      showNoteContents: showNotes.some(note => note.content && note.content.toLowerCase().includes(testQuery.toLowerCase())),
+      links: links.some(link => link.linkText.toLowerCase().includes(testQuery.toLowerCase()))
+    };
+    
+    return c.json({
+      episode,
+      showNotes,
+      links,
+      containsQuery
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    return c.json({ message: 'デバッグ情報の取得に失敗しました' }, 500);
   }
 });
 
