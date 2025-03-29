@@ -138,14 +138,6 @@ export class MemStorage implements IStorage {
         hasMatch = true;
       }
       
-      // ショーノートのタイトルをチェック
-      const hasShowNoteTitleMatch = showNotes.some(note => 
-        note.title && note.title.toLowerCase().includes(normalizedQuery)
-      );
-      if (hasShowNoteTitleMatch) {
-        hasMatch = true;
-      }
-      
       // リンクを検索するために全ショーノートのコンテンツを結合
       const allNotesContent = showNotes.map(note => note.content || '').join(' ');
       
@@ -179,10 +171,13 @@ export class MemStorage implements IStorage {
         hasMatch = true;
       }
       
+      // マッチするリンクテキストの配列を作成（ハイライト用）
+      const matchedLinkTexts = linkTexts.filter(text => 
+        text.toLowerCase().includes(normalizedQuery)
+      );
+      
       // マッチするショーノートを探す
       const matchedShowNotes = showNotes.map(note => {
-        const titleMatched = note.title && note.title.toLowerCase().includes(normalizedQuery);
-        
         // リンクテキストだけをチェック（ショーノートの内容全体ではなく）
         const noteLinkTexts: string[] = [];
         if (note.content) {
@@ -203,32 +198,39 @@ export class MemStorage implements IStorage {
         // Add a non-persisted property to indicate if this note matched the search
         return {
           ...note,
-          matched: titleMatched || linkMatched // contentMatchedは含めない
+          matched: linkMatched // タイトルマッチは含めない
         };
       });
       
       // エピソード情報をログに出力（特定のエピソードの場合）
-      if (["292", "278", "109"].includes(episodeNumber)) {
+      if (["334", "292", "278", "109"].includes(episodeNumber)) {
         console.log(`\nエピソード #${episodeNumber} の検索結果:`);
         console.log(`タイトル: ${episode.title}`);
         console.log(`エピソードタイトルマッチ: ${episodeTitleMatch}`);
-        console.log(`ショーノートタイトルマッチ: ${hasShowNoteTitleMatch}`);
         console.log(`リンクテキストマッチ: ${hasMatchingLinkText}`);
+        if (hasMatchingLinkText) {
+          console.log(`マッチしたリンクテキスト: ${matchedLinkTexts.join(' | ')}`);
+        }
         console.log(`最終マッチ結果: ${hasMatch}`);
       }
       
-      // エピソードタイトルかショーノートのタイトル、またはリンクテキストがマッチした場合のみ結果に追加
+      // エピソードタイトルかリンクテキストがマッチした場合のみ結果に追加
       if (hasMatch) {
         results.push({
           episode,
           showNotes: matchedShowNotes,
           highlighted: {
             episodeTitle: episodeTitleMatch,
+            linkTexts: matchedLinkTexts, // マッチしたリンクテキストを追加
             query: query // Include original query for highlighting
           }
         });
       }
     }
+    
+    console.log(`検索結果のエピソード番号: ${results.map(r => r.episode.number).join(', ')}`);
+    console.log(`検索結果の件数: ${results.length}`);
+    console.log(`====== 検索終了 ======`);
     
     // Sort results by publication date (most recent first)
     return results.sort((a, b) => 
@@ -261,7 +263,7 @@ export class MemStorage implements IStorage {
       return {
         episode,
         showNotes: processedShowNotes,
-        highlighted: { episodeTitle: false, query: "" }
+        highlighted: { episodeTitle: false, linkTexts: [], query: "" }
       };
     }));
   }

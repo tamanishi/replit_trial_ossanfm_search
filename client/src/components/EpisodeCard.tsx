@@ -27,9 +27,10 @@ const highlightText = (text: string, query: string): JSX.Element => {
 export default function EpisodeCard({ result }: EpisodeCardProps) {
   const { episode, showNotes: notes, highlighted } = result;
 
-  // 検索クエリを取得
+  // 検索クエリとハイライト情報を取得
   const query = typeof highlighted === 'object' && highlighted?.query || '';
   const isEpisodeTitleHighlighted = typeof highlighted === 'object' && highlighted?.episodeTitle || false;
+  const matchedLinkTexts = typeof highlighted === 'object' && highlighted?.linkTexts || [];
   
   // 検索ヒットしたショーノートのみをフィルタリング
   const matchedNotes = notes.filter(note => note.matched);
@@ -126,9 +127,9 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
                     href={link.url} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-primary hover:underline"
+                    className={`text-primary hover:underline ${matchedLinkTexts.includes(link.text) ? 'font-semibold' : ''}`}
                   >
-                    {query ? highlightText(link.text, query) : link.text}
+                    {matchedLinkTexts.includes(link.text) || query ? highlightText(link.text, query) : link.text}
                   </a>
                 </li>
               ))}

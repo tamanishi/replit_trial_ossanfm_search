@@ -51,6 +51,7 @@ export const searchResultSchema = z.object({
   ),
   highlighted: z.object({
     episodeTitle: z.boolean().default(false),
+    linkTexts: z.array(z.string()).optional(), // マッチしたリンクテキストの配列
     query: z.string().default("")
   }),
 });
