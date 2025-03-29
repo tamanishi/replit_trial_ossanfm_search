@@ -13,6 +13,7 @@ export interface IStorage {
   getEpisodes(): Promise<Episode[]>;
   getEpisode(id: number): Promise<Episode | undefined>;
   createEpisode(episode: InsertEpisode): Promise<Episode>;
+  updateEpisode(episode: Episode): Promise<Episode>;
   getShowNotes(episodeId: number): Promise<ShowNote[]>;
   createShowNote(showNote: InsertShowNote): Promise<ShowNote>;
   searchEpisodes(query: string): Promise<SearchResult[]>;
@@ -230,6 +231,15 @@ export class MemStorage implements IStorage {
     return results.sort((a, b) => 
       b.episode.publicationDate.getTime() - a.episode.publicationDate.getTime()
     );
+  }
+
+  async updateEpisode(episode: Episode): Promise<Episode> {
+    if (!this.episodes.has(episode.id)) {
+      throw new Error(`Episode with ID ${episode.id} not found.`);
+    }
+    
+    this.episodes.set(episode.id, episode);
+    return episode;
   }
 
   async getLatestEpisodes(limit: number, offset: number): Promise<SearchResult[]> {

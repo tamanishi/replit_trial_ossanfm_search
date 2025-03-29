@@ -75,9 +75,18 @@ async function fetchAndProcessPodcastData() {
     const existingEpisode = existingEpisodes.find(ep => ep.guid === guid);
     
     if (!existingEpisode) {
-      // Extract episode number from title (e.g., "#123 ...")
-      const numberMatch = item.title.match(/#(\d+)/);
-      const number = numberMatch ? numberMatch[1] : '';
+      // Extract episode number from title (e.g., "#123 ..." or "123. ...")
+      let number = '';
+      const hashNumberMatch = item.title.match(/#(\d+)/);
+      const dotNumberMatch = item.title.match(/^(\d+)\./);
+      
+      if (dotNumberMatch && dotNumberMatch[1]) {
+        // タイトルの先頭が "123." の形式
+        number = dotNumberMatch[1];
+      } else if (hashNumberMatch && hashNumberMatch[1]) {
+        // タイトルに "#123" の形式
+        number = hashNumberMatch[1];
+      }
       
       // Extract tags from categories
       const categories = Array.isArray(item.category) 
@@ -149,10 +158,32 @@ app.get('/api/refresh', async (c) => {
     const episodeNumbers = episodes.map(e => e.number);
     console.log(`全エピソード番号（先頭5件）: ${episodeNumbers.slice(0, 5).join(', ')}... （合計 ${episodeNumbers.length} 件）`);
     
-    // エラーチェック
-    const noNumberEpisodes = episodes.filter(e => !e.number || e.number === 'N/A');
+    // エラーチェックと修正
+    let noNumberEpisodes = episodes.filter(e => !e.number || e.number === 'N/A');
     if (noNumberEpisodes.length > 0) {
       console.log(`警告: ${noNumberEpisodes.length} 件のエピソードに番号が設定されていません。`);
+      
+      // N/Aのエピソードのタイトルから番号を抽出して更新
+      for (const episode of noNumberEpisodes) {
+        if (episode.title) {
+          // タイトルから番号を抽出
+          const dotNumberMatch = episode.title.match(/^(\d+)\./);
+          
+          if (dotNumberMatch && dotNumberMatch[1]) {
+            const extractedNumber = dotNumberMatch[1];
+            console.log(`WARNING: エピソード番号が設定されていません。ID=${episode.id}のエピソード`);
+            console.log(`エピソード番号にIDを使用します: ${extractedNumber}`);
+            
+            // エピソード番号を更新
+            episode.number = extractedNumber;
+            
+            // エピソードをストレージに保存
+            await storage.updateEpisode(episode);
+          } else {
+            console.log(`エピソード番号が抽出できません: ${episode.title}`);
+          }
+        }
+      }
     }
     
     return c.json({ 
