@@ -74,7 +74,7 @@ export default function Home() {
               isSearching={searchResults.isLoading} 
             />
             <p className="mt-2 text-sm text-gray-500">
-              エピソードのタイトルとショーノートのタイトルが検索対象です
+              エピソードのタイトル、ショーノートのタイトル、および参考リンクのテキストが検索対象です
             </p>
           </div>
         </section>
@@ -122,7 +122,7 @@ export default function Home() {
               </h3>
               <p className="text-gray-500">
                 別のキーワードを試してみてください。<br />
-                エピソードタイトルとショーノートタイトルのみが検索対象です。
+                エピソードのタイトル、ショーノートのタイトル、および参考リンクのテキストが検索対象です。
               </p>
             </div>
           )}

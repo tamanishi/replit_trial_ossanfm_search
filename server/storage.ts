@@ -77,22 +77,55 @@ export class MemStorage implements IStorage {
       
       const episodeTitleMatch = episode.title.toLowerCase().includes(normalizedQuery);
       
+      // リンクを検索するために全ショーノートのコンテンツを結合
+      const allNotesContent = showNotes.map(note => note.content || '').join(' ');
+      
+      // リンクテキストを抽出
+      const linkTexts: string[] = [];
+      
+      // アンカータグからリンクテキストを抽出
+      const anchorRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
+      let anchorMatch;
+      while ((anchorMatch = anchorRegex.exec(allNotesContent)) !== null) {
+        const linkText = anchorMatch[3].replace(/<[^>]*>/g, '').trim();
+        if (linkText) {
+          linkTexts.push(linkText);
+        }
+      }
+      
       // Match show notes and mark which ones matched
       const matchedShowNotes = showNotes.map(note => {
         const titleMatched = note.title.toLowerCase().includes(normalizedQuery);
+        const contentMatched = (note.content || '').toLowerCase().includes(normalizedQuery);
+        
         // Add a non-persisted property to indicate if this note matched the search
         return {
           ...note,
-          matched: titleMatched
+          matched: titleMatched || contentMatched
         };
       });
       
+      // リンクテキストが検索クエリにマッチするか確認
+      const hasMatchingLinkText = linkTexts.some(text => 
+        text.toLowerCase().includes(normalizedQuery)
+      );
+      
       const hasMatchingShowNotes = matchedShowNotes.some(note => note.matched);
       
-      if (episodeTitleMatch || hasMatchingShowNotes) {
+      if (episodeTitleMatch || hasMatchingShowNotes || hasMatchingLinkText) {
+        // リンクがマッチした場合、対応するショーノートをマッチしたとマーク
+        const finalShowNotes = hasMatchingLinkText 
+          ? matchedShowNotes.map(note => ({
+              ...note,
+              matched: note.matched || (note.content || '').toLowerCase().includes(normalizedQuery) || 
+                      linkTexts.some(text => text.toLowerCase().includes(normalizedQuery) && 
+                                            (note.content || '').includes(text))
+            }))
+          : matchedShowNotes;
+        
         results.push({
           episode,
-          showNotes: matchedShowNotes,
+          showNotes: finalShowNotes,
           highlighted: {
             episodeTitle: episodeTitleMatch,
             query: query // Include original query for highlighting

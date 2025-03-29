@@ -142,7 +142,7 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
                     rel="noopener noreferrer" 
                     className="text-primary hover:underline"
                   >
-                    {link.text}
+                    {query ? highlightText(link.text, query) : link.text}
                   </a>
                 </li>
               ))}
