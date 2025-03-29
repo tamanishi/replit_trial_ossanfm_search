@@ -75,7 +75,22 @@ export class MemStorage implements IStorage {
         note => note.episodeId === episode.id
       );
       
+      // エピソードタイトルをチェック
       const episodeTitleMatch = episode.title.toLowerCase().includes(normalizedQuery);
+      
+      // ショーノートのコンテンツとリンクをチェック
+      let hasMatch = false;
+      
+      // ショーノートのタイトルとコンテンツをチェック
+      const hasMatchingShowNotes = showNotes.some(note => {
+        const titleMatched = note.title && note.title.toLowerCase().includes(normalizedQuery);
+        const contentMatched = note.content && note.content.toLowerCase().includes(normalizedQuery);
+        return titleMatched || contentMatched;
+      });
+      
+      if (hasMatchingShowNotes) {
+        hasMatch = true;
+      }
       
       // リンクを検索するために全ショーノートのコンテンツを結合
       const allNotesContent = showNotes.map(note => note.content || '').join(' ');
@@ -93,41 +108,44 @@ export class MemStorage implements IStorage {
         }
       }
       
+      // URLパターンを見つけるための別の方法（プレーンテキストのURL）
+      const urlPattern = /(https?:\/\/[^\s"'<>]+)/g;
+      let urlMatch;
+      while ((urlMatch = urlPattern.exec(allNotesContent)) !== null) {
+        const url = urlMatch[1];
+        linkTexts.push(url);
+      }
+      
       // リンクテキストが検索クエリにマッチするか確認
       const hasMatchingLinkText = linkTexts.some(text => 
         text.toLowerCase().includes(normalizedQuery)
       );
       
+      if (hasMatchingLinkText) {
+        hasMatch = true;
+      }
+      
       // マッチするショーノートを探す
       const matchedShowNotes = showNotes.map(note => {
-        const titleMatched = note.title.toLowerCase().includes(normalizedQuery);
-        const contentMatched = (note.content || '').toLowerCase().includes(normalizedQuery);
+        const titleMatched = note.title && note.title.toLowerCase().includes(normalizedQuery);
+        const contentMatched = note.content && note.content.toLowerCase().includes(normalizedQuery);
+        const linkMatched = linkTexts.some(text => 
+          text.toLowerCase().includes(normalizedQuery) && 
+          (note.content || '').includes(text)
+        );
         
         // Add a non-persisted property to indicate if this note matched the search
         return {
           ...note,
-          matched: titleMatched || contentMatched
+          matched: titleMatched || contentMatched || linkMatched
         };
       });
       
-      // ショーノートの内容に検索クエリが含まれるかを確認
-      const hasMatchingShowNotes = matchedShowNotes.some(note => note.matched);
-      
-      // リンクやショーノートがマッチした場合、それを反映させる
-      const finalShowNotes = matchedShowNotes.map(note => ({
-        ...note,
-        matched: note.matched || 
-                (hasMatchingLinkText && linkTexts.some(text => 
-                  text.toLowerCase().includes(normalizedQuery) && 
-                  (note.content || '').includes(text)
-                ))
-      }));
-      
-      // いずれかの条件がマッチする場合のみ結果に追加
-      if (episodeTitleMatch || hasMatchingShowNotes || hasMatchingLinkText) {
+      // エピソードタイトルかショーノートかリンクがマッチした場合のみ結果に追加
+      if (episodeTitleMatch || hasMatch) {
         results.push({
           episode,
-          showNotes: finalShowNotes,
+          showNotes: matchedShowNotes,
           highlighted: {
             episodeTitle: episodeTitleMatch,
             query: query // Include original query for highlighting
