@@ -102,7 +102,7 @@ export default function Home() {
           )}
           
           {/* No Results State */}
-          {!isLoading && results && results.length === 0 && (
+          {!isLoading && results && results.length === 0 && searchQuery !== "" && (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -117,8 +117,13 @@ export default function Home() {
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
-              <h3 className="text-lg font-medium text-gray-600 mb-2">検索結果がありません</h3>
-              <p className="text-gray-500">別のキーワードで検索してみてください</p>
+              <h3 className="text-lg font-medium text-gray-600 mb-2">
+                「<span className="text-primary">{searchQuery}</span>」に一致する結果がありません
+              </h3>
+              <p className="text-gray-500">
+                別のキーワードを試してみてください。<br />
+                エピソードタイトルとショーノートタイトルのみが検索対象です。
+              </p>
             </div>
           )}
           

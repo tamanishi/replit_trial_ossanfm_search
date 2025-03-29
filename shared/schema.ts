@@ -45,9 +45,17 @@ export const searchResultSchema = z.object({
       title: z.string(),
       content: z.string().optional(),
       timestamp: z.string().optional(),
+      episodeId: z.number(),
+      matched: z.boolean().optional() // 検索にマッチしたかどうか
     })
   ),
-  highlighted: z.boolean().optional(),
+  highlighted: z.union([
+    z.boolean().optional(),
+    z.object({
+      episodeTitle: z.boolean().optional(),
+      query: z.string().optional()
+    }).optional()
+  ]),
 });
 
 export type SearchResult = z.infer<typeof searchResultSchema>;

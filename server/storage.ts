@@ -75,16 +75,28 @@ export class MemStorage implements IStorage {
         note => note.episodeId === episode.id
       );
       
-      const episodeMatch = episode.title.toLowerCase().includes(normalizedQuery);
-      const showNoteMatches = showNotes.filter(note => 
-        note.title.toLowerCase().includes(normalizedQuery)
-      );
+      const episodeTitleMatch = episode.title.toLowerCase().includes(normalizedQuery);
       
-      if (episodeMatch || showNoteMatches.length > 0) {
+      // Match show notes and mark which ones matched
+      const matchedShowNotes = showNotes.map(note => {
+        const titleMatched = note.title.toLowerCase().includes(normalizedQuery);
+        // Add a non-persisted property to indicate if this note matched the search
+        return {
+          ...note,
+          matched: titleMatched
+        };
+      });
+      
+      const hasMatchingShowNotes = matchedShowNotes.some(note => note.matched);
+      
+      if (episodeTitleMatch || hasMatchingShowNotes) {
         results.push({
           episode,
-          showNotes,
-          highlighted: episodeMatch
+          showNotes: matchedShowNotes,
+          highlighted: {
+            episodeTitle: episodeTitleMatch,
+            query: query // Include original query for highlighting
+          }
         });
       }
     }
@@ -102,9 +114,16 @@ export class MemStorage implements IStorage {
     
     return Promise.all(sortedEpisodes.map(async episode => {
       const showNotes = await this.getShowNotes(episode.id);
+      // 検索結果ではない場合は matched を false に設定
+      const processedShowNotes = showNotes.map(note => ({
+        ...note,
+        matched: false
+      }));
+      
       return {
         episode,
-        showNotes,
+        showNotes: processedShowNotes,
+        highlighted: { episodeTitle: false, query: "" }
       };
     }));
   }

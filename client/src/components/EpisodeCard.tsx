@@ -7,9 +7,34 @@ interface EpisodeCardProps {
   result: SearchResult;
 }
 
-export default function EpisodeCard({ result }: EpisodeCardProps) {
-  const { episode, showNotes: notes } = result;
+// テキスト内の検索クエリをハイライト表示する関数
+const highlightText = (text: string, query: string): JSX.Element => {
+  if (!query || query.trim() === '') return <>{text}</>;
+  
+  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  
+  return (
+    <>
+      {parts.map((part, i) => 
+        part.toLowerCase() === query.toLowerCase() 
+          ? <mark key={i} className="bg-yellow-200 px-0.5 rounded">{part}</mark> 
+          : <span key={i}>{part}</span>
+      )}
+    </>
+  );
+};
 
+export default function EpisodeCard({ result }: EpisodeCardProps) {
+  const { episode, showNotes: notes, highlighted } = result;
+
+  // 検索クエリを取得
+  const query = typeof highlighted === 'object' && highlighted?.query || '';
+  const isEpisodeTitleHighlighted = typeof highlighted === 'object' && highlighted?.episodeTitle || false;
+  
+  // 検索ヒットしたショーノートのみをフィルタリング
+  const matchedNotes = notes.filter(note => note.matched);
+  const hasMatchedNotes = matchedNotes.length > 0;
+  
   // Format the publication date
   const formattedDate = format(new Date(episode.publicationDate), 'yyyy年MM月dd日', { locale: ja });
   const shortDate = format(new Date(episode.publicationDate), 'yyyy/MM/dd', { locale: ja });
@@ -64,7 +89,7 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {episode.title}
+              {isEpisodeTitleHighlighted ? highlightText(episode.title, query) : episode.title}
             </h3>
             <div className="flex flex-wrap items-center text-sm text-gray-500 mb-2">
               <span>{formattedDate}</span>
@@ -87,6 +112,22 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
             </div>
           </div>
         </div>
+        
+        {/* マッチしたショーノートの表示 */}
+        {hasMatchedNotes && query && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <h4 className="font-medium text-gray-700 mb-3">キーワードにマッチしたショーノート</h4>
+            <ul className="space-y-2">
+              {matchedNotes.map((note, index) => (
+                <li key={index} className="py-1 pl-3 border-l-2 border-primary/30">
+                  <div className="font-medium text-gray-800">
+                    {highlightText(note.title, query)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         
         {/* 参考リンクセクション */}
         <div className="mt-4 pt-4 border-t border-gray-100">
