@@ -93,7 +93,12 @@ export class MemStorage implements IStorage {
         }
       }
       
-      // Match show notes and mark which ones matched
+      // リンクテキストが検索クエリにマッチするか確認
+      const hasMatchingLinkText = linkTexts.some(text => 
+        text.toLowerCase().includes(normalizedQuery)
+      );
+      
+      // マッチするショーノートを探す
       const matchedShowNotes = showNotes.map(note => {
         const titleMatched = note.title.toLowerCase().includes(normalizedQuery);
         const contentMatched = (note.content || '').toLowerCase().includes(normalizedQuery);
@@ -105,24 +110,21 @@ export class MemStorage implements IStorage {
         };
       });
       
-      // リンクテキストが検索クエリにマッチするか確認
-      const hasMatchingLinkText = linkTexts.some(text => 
-        text.toLowerCase().includes(normalizedQuery)
-      );
-      
+      // ショーノートの内容に検索クエリが含まれるかを確認
       const hasMatchingShowNotes = matchedShowNotes.some(note => note.matched);
       
+      // リンクやショーノートがマッチした場合、それを反映させる
+      const finalShowNotes = matchedShowNotes.map(note => ({
+        ...note,
+        matched: note.matched || 
+                (hasMatchingLinkText && linkTexts.some(text => 
+                  text.toLowerCase().includes(normalizedQuery) && 
+                  (note.content || '').includes(text)
+                ))
+      }));
+      
+      // いずれかの条件がマッチする場合のみ結果に追加
       if (episodeTitleMatch || hasMatchingShowNotes || hasMatchingLinkText) {
-        // リンクがマッチした場合、対応するショーノートをマッチしたとマーク
-        const finalShowNotes = hasMatchingLinkText 
-          ? matchedShowNotes.map(note => ({
-              ...note,
-              matched: note.matched || (note.content || '').toLowerCase().includes(normalizedQuery) || 
-                      linkTexts.some(text => text.toLowerCase().includes(normalizedQuery) && 
-                                            (note.content || '').includes(text))
-            }))
-          : matchedShowNotes;
-        
         results.push({
           episode,
           showNotes: finalShowNotes,

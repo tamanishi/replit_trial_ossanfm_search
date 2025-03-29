@@ -113,21 +113,7 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
           </div>
         </div>
         
-        {/* マッチしたショーノートの表示 */}
-        {hasMatchedNotes && query && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <h4 className="font-medium text-gray-700 mb-3">キーワードにマッチしたショーノート</h4>
-            <ul className="space-y-2">
-              {matchedNotes.map((note, index) => (
-                <li key={index} className="py-1 pl-3 border-l-2 border-primary/30">
-                  <div className="font-medium text-gray-800">
-                    {highlightText(note.title, query)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+
         
         {/* 参考リンクセクション */}
         <div className="mt-4 pt-4 border-t border-gray-100">
