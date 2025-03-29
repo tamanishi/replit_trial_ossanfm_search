@@ -7,12 +7,76 @@ interface EpisodeCardProps {
   result: SearchResult;
 }
 
+// 特定の定型文を含むかチェックする関数
+const containsStandardText = (content: string): boolean => {
+  const standardPhrases = [
+    "番組への感想や質問",
+    "こちら</a>から（Google Form",
+    "お気軽にメッセージください",
+    "次回は",
+    "公開予定です"
+  ];
+  
+  return standardPhrases.some(phrase => content.includes(phrase));
+};
+
+// チャプターっぽいタイトルかをチェックする関数
+const isChapterTitle = (title: string): boolean => {
+  // 「はじめに」「おわりに」などのチャプタータイトルを検出
+  const chapterTitles = [
+    "はじめに", "おわりに", "チャプター", "イントロ", "まとめ", 
+    "アウトロ", "Chapter", "Intro", "Outro"
+  ];
+  
+  return chapterTitles.some(chapterTitle => 
+    title.includes(chapterTitle) || 
+    // 短すぎるタイトルもチャプターの可能性が高い
+    (title.length < 5 && !title.includes("http"))
+  );
+};
+
+// HTML文字列からリンクを抽出する関数
+const extractLinks = (htmlContent: string): { text: string; url: string }[] => {
+  const links: { text: string; url: string }[] = [];
+  const regex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
+  
+  let match;
+  while ((match = regex.exec(htmlContent)) !== null) {
+    const url = match[2];
+    const text = match[3].replace(/<[^>]*>/g, '').trim();
+    
+    // URLと表示テキストが同じ場合はURLだけ表示
+    links.push({
+      text: text || url,
+      url: url
+    });
+  }
+  
+  return links;
+};
+
 export default function EpisodeCard({ result }: EpisodeCardProps) {
   const { episode, showNotes: notes } = result;
 
   // Format the publication date
   const formattedDate = format(new Date(episode.publicationDate), 'yyyy年MM月dd日', { locale: ja });
   const shortDate = format(new Date(episode.publicationDate), 'yyyy/MM/dd', { locale: ja });
+  
+  // 表示対象のショーノートを抽出する
+  const filteredNotes = notes.filter(note => 
+    !isChapterTitle(note.title) && 
+    !containsStandardText(note.content || '')
+  );
+  
+  // 各ショーノートからリンクを抽出
+  const allLinks = filteredNotes.flatMap(note => 
+    extractLinks(note.content || '')
+  );
+  
+  // 重複リンクを削除
+  const uniqueLinks = allLinks.filter((link, index, self) => 
+    index === self.findIndex(l => l.url === link.url)
+  );
   
   return (
     <Card className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -50,31 +114,26 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
           </div>
         </div>
         
-        {/* Show Notes Section - Always displayed */}
+        {/* Show Notes Section - リンク箇条書き表示 */}
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <h4 className="font-medium text-gray-700 mb-3">ショーノート</h4>
-          {notes.length > 0 ? (
+          <h4 className="font-medium text-gray-700 mb-3">参考リンク</h4>
+          {uniqueLinks.length > 0 ? (
             <ul className="list-disc pl-5 space-y-2">
-              {notes.map((note) => (
-                <li key={note.id} className="text-gray-800">
-                  <div className="font-medium">
-                    {note.title}
-                    {note.timestamp && (
-                      <span className="ml-2 text-xs text-gray-400">
-                        {note.timestamp}
-                      </span>
-                    )}
-                  </div>
-                  {note.content && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      {note.content.replace(/<[^>]*>/g, '')}
-                    </p>
-                  )}
+              {uniqueLinks.map((link, index) => (
+                <li key={index} className="text-gray-800">
+                  <a 
+                    href={link.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-primary hover:underline"
+                  >
+                    {link.text}
+                  </a>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-500">このエピソードにショーノートはありません。</p>
+            <p className="text-sm text-gray-500">このエピソードに参考リンクはありません。</p>
           )}
           <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
             <a href={episode.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:text-secondary font-medium">
