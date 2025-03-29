@@ -88,26 +88,6 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
           </div>
         </div>
         
-        {/* チャプター情報の表示 */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <h4 className="font-medium text-gray-700 mb-3">チャプター</h4>
-          {notes.length > 0 && notes[0]?.content?.includes('<li>') ? (
-            <div 
-              className="text-sm text-gray-700" 
-              dangerouslySetInnerHTML={{ 
-                __html: notes[0]?.content
-                  ?.replace(/<p>🎙Ossan\.fm🎧<\/p>/, '')
-                  ?.replace(/<\/?ul>/g, '')
-                  ?.replace(/<li>/g, '<div class="mb-1 pl-4 relative before:content-[\'\'] before:absolute before:w-1.5 before:h-1.5 before:bg-gray-400 before:rounded-full before:left-0 before:top-2">')
-                  ?.replace(/<\/li>/g, '</div>')
-                  || ''
-              }} 
-            />
-          ) : (
-            <p className="text-sm text-gray-500">チャプター情報はありません。</p>
-          )}
-        </div>
-        
         {/* 参考リンクセクション */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           <h4 className="font-medium text-gray-700 mb-3">参考リンク</h4>
