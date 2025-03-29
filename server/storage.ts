@@ -141,7 +141,7 @@ export class MemStorage implements IStorage {
       // リンクを検索するために全ショーノートのコンテンツを結合
       const allNotesContent = showNotes.map(note => note.content || '').join(' ');
       
-      // リンクテキストを抽出
+      // リンクテキストを抽出（アンカータグ内のテキストのみ）
       const linkTexts: string[] = [];
       
       // アンカータグからリンクテキストを抽出 - 検索対象はこれだけにする
@@ -154,13 +154,7 @@ export class MemStorage implements IStorage {
         }
       }
       
-      // URLパターンを見つけるための別の方法（プレーンテキストのURL）
-      const urlPattern = /(https?:\/\/[^\s"'<>]+)/g;
-      let urlMatch;
-      while ((urlMatch = urlPattern.exec(allNotesContent)) !== null) {
-        const url = urlMatch[1];
-        linkTexts.push(url);
-      }
+      // href属性のURLは検索対象としない (URLパターンも削除)
       
       // リンクテキストが検索クエリにマッチするか確認
       const hasMatchingLinkText = linkTexts.some(text => 
