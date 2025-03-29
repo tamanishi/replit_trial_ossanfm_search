@@ -1,15 +1,26 @@
 import { Hono } from 'hono';
 import type { Express, Request, Response, NextFunction } from 'express';
 import app from './hono';
+import { log } from './vite';
 
 // This adapter allows the Hono app to run alongside the express app
 // and handle API requests while express handles the static files and client-side routing
 export function setupHonoAdapter(expressApp: Express) {
-  // Use Hono app only for API routes
-  expressApp.use('/api/*', async (req: Request, res: Response, next: NextFunction) => {
+  log('Setting up Hono adapter for API routes');
+  
+  // Use Hono app for API routes
+  expressApp.use('/api', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Convert express request to fetch request
-      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      log(`Processing API request: ${req.method} ${req.path}`);
+      
+      // Fix the URL by making sure it includes the full path
+      // Express sometimes has req.url as just the path after the route prefix
+      const fullPath = req.originalUrl || req.url;
+      const host = req.headers.host || 'localhost:5000';
+      const url = new URL(fullPath, `http://${host}`);
+      
+      log(`Sending request to Hono: ${url.toString()}`);
+      
       const method = req.method;
       
       // Prepare headers
@@ -42,6 +53,8 @@ export function setupHonoAdapter(expressApp: Express) {
 
       // Process with Hono
       const honoResponse = await app.fetch(request);
+      
+      log(`Hono response status: ${honoResponse.status}`);
       
       // Convert Hono response to express response
       res.status(honoResponse.status);
