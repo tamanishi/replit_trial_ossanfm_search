@@ -146,21 +146,13 @@ export class MemStorage implements IStorage {
         hasMatch = true;
       }
       
-      // ショーノートの内容をチェック
-      const hasShowNoteContentMatch = showNotes.some(note => 
-        note.content && note.content.toLowerCase().includes(normalizedQuery)
-      );
-      if (hasShowNoteContentMatch) {
-        hasMatch = true;
-      }
-      
       // リンクを検索するために全ショーノートのコンテンツを結合
       const allNotesContent = showNotes.map(note => note.content || '').join(' ');
       
       // リンクテキストを抽出
       const linkTexts: string[] = [];
       
-      // アンカータグからリンクテキストを抽出
+      // アンカータグからリンクテキストを抽出 - 検索対象はこれだけにする
       const anchorRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
       let anchorMatch;
       while ((anchorMatch = anchorRegex.exec(allNotesContent)) !== null) {
@@ -190,16 +182,28 @@ export class MemStorage implements IStorage {
       // マッチするショーノートを探す
       const matchedShowNotes = showNotes.map(note => {
         const titleMatched = note.title && note.title.toLowerCase().includes(normalizedQuery);
-        const contentMatched = note.content && note.content.toLowerCase().includes(normalizedQuery);
-        const linkMatched = linkTexts.some(text => 
-          text.toLowerCase().includes(normalizedQuery) && 
-          (note.content || '').includes(text)
+        
+        // リンクテキストだけをチェック（ショーノートの内容全体ではなく）
+        const noteLinkTexts: string[] = [];
+        if (note.content) {
+          const noteAnchorRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
+          let noteAnchorMatch;
+          while ((noteAnchorMatch = noteAnchorRegex.exec(note.content)) !== null) {
+            const linkText = noteAnchorMatch[3].replace(/<[^>]*>/g, '').trim();
+            if (linkText) {
+              noteLinkTexts.push(linkText);
+            }
+          }
+        }
+        
+        const linkMatched = noteLinkTexts.some(text => 
+          text.toLowerCase().includes(normalizedQuery)
         );
         
         // Add a non-persisted property to indicate if this note matched the search
         return {
           ...note,
-          matched: titleMatched || contentMatched || linkMatched
+          matched: titleMatched || linkMatched // contentMatchedは含めない
         };
       });
       
@@ -209,12 +213,11 @@ export class MemStorage implements IStorage {
         console.log(`タイトル: ${episode.title}`);
         console.log(`エピソードタイトルマッチ: ${episodeTitleMatch}`);
         console.log(`ショーノートタイトルマッチ: ${hasShowNoteTitleMatch}`);
-        console.log(`ショーノート内容マッチ: ${hasShowNoteContentMatch}`);
         console.log(`リンクテキストマッチ: ${hasMatchingLinkText}`);
         console.log(`最終マッチ結果: ${hasMatch}`);
       }
       
-      // エピソードタイトルかショーノートかリンクがマッチした場合のみ結果に追加
+      // エピソードタイトルかショーノートのタイトル、またはリンクテキストがマッチした場合のみ結果に追加
       if (hasMatch) {
         results.push({
           episode,
