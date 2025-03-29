@@ -7,54 +7,6 @@ interface EpisodeCardProps {
   result: SearchResult;
 }
 
-// 特定の定型文を含むかチェックする関数
-const containsStandardText = (content: string): boolean => {
-  const standardPhrases = [
-    "番組への感想や質問",
-    "こちら</a>から（Google Form",
-    "お気軽にメッセージください",
-    "次回は",
-    "公開予定です"
-  ];
-  
-  return standardPhrases.some(phrase => content.includes(phrase));
-};
-
-// チャプターっぽいタイトルかをチェックする関数
-const isChapterTitle = (title: string): boolean => {
-  // 「はじめに」「おわりに」などのチャプタータイトルを検出
-  const chapterTitles = [
-    "はじめに", "おわりに", "チャプター", "イントロ", "まとめ", 
-    "アウトロ", "Chapter", "Intro", "Outro"
-  ];
-  
-  return chapterTitles.some(chapterTitle => 
-    title.includes(chapterTitle) || 
-    // 短すぎるタイトルもチャプターの可能性が高い
-    (title.length < 5 && !title.includes("http"))
-  );
-};
-
-// HTML文字列からリンクを抽出する関数
-const extractLinks = (htmlContent: string): { text: string; url: string }[] => {
-  const links: { text: string; url: string }[] = [];
-  const regex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
-  
-  let match;
-  while ((match = regex.exec(htmlContent)) !== null) {
-    const url = match[2];
-    const text = match[3].replace(/<[^>]*>/g, '').trim();
-    
-    // URLと表示テキストが同じ場合はURLだけ表示
-    links.push({
-      text: text || url,
-      url: url
-    });
-  }
-  
-  return links;
-};
-
 export default function EpisodeCard({ result }: EpisodeCardProps) {
   const { episode, showNotes: notes } = result;
 
@@ -62,16 +14,38 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
   const formattedDate = format(new Date(episode.publicationDate), 'yyyy年MM月dd日', { locale: ja });
   const shortDate = format(new Date(episode.publicationDate), 'yyyy/MM/dd', { locale: ja });
   
-  // 表示対象のショーノートを抽出する
-  const filteredNotes = notes.filter(note => 
-    !isChapterTitle(note.title) && 
-    !containsStandardText(note.content || '')
-  );
+  // ショーノートからリンクを抽出
+  const allLinks: { text: string; url: string }[] = [];
   
-  // 各ショーノートからリンクを抽出
-  const allLinks = filteredNotes.flatMap(note => 
-    extractLinks(note.content || '')
-  );
+  // すべてのnoteのcontentを単一のテキストとして結合して処理
+  const allContents = notes.map(note => note.content || '').join(' ');
+  
+  // リンクを抽出：アンカータグを検索
+  const regex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gi;
+  let match;
+  while ((match = regex.exec(allContents)) !== null) {
+    const url = match[2];
+    const text = match[3].replace(/<[^>]*>/g, '').trim();
+    
+    if (url && !url.includes('mailto:') && !url.includes('javascript:')) {
+      allLinks.push({
+        text: text || url,
+        url: url
+      });
+    }
+  }
+  
+  // URLパターンを見つけるための別の方法（プレーンテキストのURL）
+  const urlPattern = /(https?:\/\/[^\s"'<>]+)/g;
+  let urlMatch;
+  while ((urlMatch = urlPattern.exec(allContents)) !== null) {
+    const url = urlMatch[1];
+    // すでに追加済みのURLかどうかをチェック
+    const alreadyAdded = allLinks.some(link => link.url === url);
+    if (!alreadyAdded) {
+      allLinks.push({ text: url, url });
+    }
+  }
   
   // 重複リンクを削除
   const uniqueLinks = allLinks.filter((link, index, self) => 
@@ -114,7 +88,27 @@ export default function EpisodeCard({ result }: EpisodeCardProps) {
           </div>
         </div>
         
-        {/* Show Notes Section - リンク箇条書き表示 */}
+        {/* チャプター情報の表示 */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <h4 className="font-medium text-gray-700 mb-3">チャプター</h4>
+          {notes.length > 0 && notes[0]?.content?.includes('<li>') ? (
+            <div 
+              className="text-sm text-gray-700" 
+              dangerouslySetInnerHTML={{ 
+                __html: notes[0]?.content
+                  ?.replace(/<p>🎙Ossan\.fm🎧<\/p>/, '')
+                  ?.replace(/<\/?ul>/g, '')
+                  ?.replace(/<li>/g, '<div class="mb-1 pl-4 relative before:content-[\'\'] before:absolute before:w-1.5 before:h-1.5 before:bg-gray-400 before:rounded-full before:left-0 before:top-2">')
+                  ?.replace(/<\/li>/g, '</div>')
+                  || ''
+              }} 
+            />
+          ) : (
+            <p className="text-sm text-gray-500">チャプター情報はありません。</p>
+          )}
+        </div>
+        
+        {/* 参考リンクセクション */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           <h4 className="font-medium text-gray-700 mb-3">参考リンク</h4>
           {uniqueLinks.length > 0 ? (
